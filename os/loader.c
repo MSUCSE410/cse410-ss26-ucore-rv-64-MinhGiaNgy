@@ -70,6 +70,9 @@ int run_all_app()
 		/*
 		* LAB1: you may need to initialize your new fields of proc here
 		*/
+		
+		memset(p->syscall_times, 0, sizeof(p->syscall_times));
+		p->start_time_ms = (uint64)-1;  
 	}
 	return 0;
 }
