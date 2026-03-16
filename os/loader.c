@@ -77,6 +77,10 @@ int bin_loader(uint64 start, uint64 end, struct proc *p)
 	p->trapframe->epc = va_start;
 	p->max_page = PGROUNDUP(p->ustack + USTACK_SIZE - 1) / PAGE_SIZE;
 	p->state = RUNNABLE;
+
+	p->priority = 16;
+	p->stride = 0;
+	p->task_info.status = Ready;
 	return 0;
 }
 
@@ -97,6 +101,5 @@ int load_init_app()
 	}
 	debugf("load init proc %s", INIT_PROC);
 	loader(id, p);
-	add_task(p);
 	return 0;
 }
