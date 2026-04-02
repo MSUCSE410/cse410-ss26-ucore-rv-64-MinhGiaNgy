@@ -48,7 +48,7 @@ uint64 sys_sched_yield()
 	yield();
 	return 0;
 }
-
+//
 uint64 sys_gettimeofday(uint64 val, int _tz)
 {
 	struct proc *p = curr_proc();
