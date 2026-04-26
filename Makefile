@@ -5,6 +5,8 @@ K = os
 U = user
 F = nfs
 
+CHAPTER ?= $(shell git rev-parse --abbrev-ref HEAD | grep -oP 'ch\K[0-9]')
+
 TOOLPREFIX = riscv64-unknown-elf-
 CC = $(TOOLPREFIX)gcc
 AS = $(TOOLPREFIX)gcc
@@ -28,6 +30,9 @@ ifeq (,$(findstring initproc.o,$(OBJS)))
 endif
 
 INIT_PROC ?= usershell
+ifeq ($(CHAPTER),8)
+INIT_PROC = ch8b_usertest
+endif
 
 $(K)/initproc.o: $K/initproc.S
 $(K)/initproc.S: scripts/initproc.py .FORCE
@@ -78,10 +83,8 @@ $(C_OBJS): $(BUILDDIR)/$K/%.o : $K/%.c  $(BUILDDIR)/$K/%.d
 $(HEADER_DEP): $(BUILDDIR)/$K/%.d : $K/%.c
 	@mkdir -p $(@D)
 	@set -e; rm -f $@; $(CC) -MM $< $(INCLUDEFLAGS) > $@.$$$$; \
-        sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
-        rm -f $@.$$$$
-
-INIT_PROC ?= usershell
+	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	rm -f $@.$$$$
 
 build: build/kernel
 
@@ -92,8 +95,8 @@ build/kernel: $(OBJS) os/kernel.ld
 	@echo 'Build kernel done'
 
 clean:
-	rm -rf $(BUILDDIR) os/initproc.S
-	rm $(F)/*.img
+	rm -rf build os/initproc.S
+	rm -f nfs/*.img
 
 # BOARD
 BOARD		?= qemu
@@ -105,9 +108,9 @@ QEMUOPTS = \
 	-nographic \
 	-machine virt \
 	-bios $(BOOTLOADER) \
-	-kernel build/kernel	\
+	-kernel build/kernel \
 	-drive file=$(F)/fs-copy.img,if=none,format=raw,id=x0 \
-    -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+	-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
 $(F)/fs.img:
 	make -C $(F)
@@ -128,10 +131,7 @@ debug: build/kernel .gdbinit $(F)/fs-copy.img
 	sleep 1
 	$(GDB)
 
-CHAPTER ?= $(shell git rev-parse --abbrev-ref HEAD | grep -oP 'ch\K[0-9]')
-
 user:
 	make -C user CHAPTER=$(CHAPTER) BASE=$(BASE)
 
 test: user run
-

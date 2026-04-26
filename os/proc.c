@@ -143,7 +143,18 @@ found:
 	p->next_semaphore_id = 0;
 	p->next_condvar_id = 0;
 	// LAB5: (1) you may initialize your new proc variables here
-	return p;
+
+	// initialize deadlock detection data
+	p->deadlock_detect_enabled = 0;
+
+	memset(p->mutex_available, 0, sizeof(p->mutex_available)); // initially all mutexes are available
+	memset(p->mutex_allocation, 0, sizeof(p->mutex_allocation)); // initially no thread holds any mutex
+	memset(p->mutex_request, 0, sizeof(p->mutex_request)); // initially no thread requests any mutex
+	
+	memset(p->semaphore_available, 0, sizeof(p->semaphore_available)); // initially all semaphores are available
+	memset(p->semaphore_allocation, 0, sizeof(p->semaphore_allocation)); // initially no thread holds any semaphore
+	memset(p->semaphore_request, 0, sizeof(p->semaphore_request)); // initially no thread requests any semaphore
+	return p; 
 }
 
 inline uint64 get_thread_trapframe_va(int tid)
