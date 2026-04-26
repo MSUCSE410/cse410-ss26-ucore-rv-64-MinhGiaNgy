@@ -67,29 +67,29 @@ int show_all_files()
 //returns 0 if the type of file to be created is not T_file
 static struct inode *create(char *path, short type)
 {
-	struct inode *ip, *dp;
-	dp = root_dir(); //Remember that the root_inode is open in this step,so it needs closing then.
-	ivalid(dp);
-	if ((ip = dirlookup(dp, path, 0)) != 0) {
+	struct inode *ip, *root;
+	root = root_dir(); //Remember that the root_inode is open in this step,so it needs closing then.
+	// ivalid(root);
+	if ((ip = dirlookup(root, path, 0)) != 0) {
 		warnf("create a exist file\n");
-		iput(dp); //Close the root_inode
+		iput(root); //Close the root_inode
 		ivalid(ip);
 		if (type == T_FILE && ip->type == T_FILE)
 			return ip;
 		iput(ip);
 		return 0;
 	}
-	if ((ip = ialloc(dp->dev, type)) == 0)
+	if ((ip = ialloc(root->dev, type)) == 0)
 		panic("create: ialloc");
 
 	tracef("create dinode and inode type = %d\n", type);
 
 	ivalid(ip);
 	iupdate(ip);
-	if (dirlink(dp, path, ip->inum) < 0)
+	if (dirlink(root, path, ip->inum) < 0)
 		panic("create: dirlink");
 
-	iput(dp);
+	iput(root);
 	return ip;
 }
 
@@ -153,4 +153,97 @@ uint64 inoderead(struct file *f, uint64 va, uint64 len)
 	if ((r = readi(f->ip, 1, va, f->off, len)) > 0)
 		f->off += r;
 	return r;
+}
+
+int linkat(uint64 oldroothpath, uint64 newpath) {
+	struct proc *p = curr_proc();
+	char oldname[200], newname[200];
+
+	if (copyinstr(p->pagetable, oldname, oldroothpath, 200) < 0) return -1;
+	if (copyinstr(p->pagetable, newname, newpath, 200) < 0) return -1;
+	
+	struct inode* root = root_dir();
+	if (root == 0) return -1;
+	struct inode* ip = dirlookup(root, oldname, 0);
+	if (ip == 0) {
+		iput(root);
+		return -1;
+	}
+
+	ivalid(ip);
+	// if isi6 directory or link target already exists, return -1
+	if (ip->type == T_DIR || dirlink(root, newname, ip->inum) < 0) {
+		iput(ip);
+		iput(root);
+		return -1;
+	}
+
+	ip->nlink += 1;
+	iupdate(ip);
+	iput(ip);
+	iput(root);
+	return 0;
+}
+
+// unlink a file/dir from path 
+int unlinkat(uint64 path) {
+	struct proc *p = curr_proc();
+	char name[200];
+	if (copyinstr(p->pagetable, name, path, 200) < 0) return -1;
+	
+	struct inode* root = root_dir();
+	if (root == 0) return -1;
+	struct inode* ip = dirlookup(root, name, 0);
+	if (ip == 0) {
+		iput(root);
+		return -1;
+	}
+
+	ivalid(ip);
+	if (dirunlink(root, name) < 0) {
+		iput(ip);
+		iput(root);
+		return -1;
+	}
+	if (ip->nlink > 0) {
+		ip->nlink -= 1;
+		iupdate(ip);
+	}
+	iput(ip);
+	iput(root);
+	return 0;
+}
+
+// fd: file descriptor
+// st: user pointer that the stat structure will be copied to
+// return statistics of current file
+int fstat(int fd, uint64 st) {
+	// illegal st address
+	if (st == 0) return -1;
+
+	struct proc* p = curr_proc();
+
+	// invalid fd
+	if (fd < 0 || fd >= FD_BUFFER_SIZE) return -1;
+
+	struct file* file = p->files[fd];
+	if (file == NULL) return -1;
+	if (file->type != FD_INODE || file->ip == 0) return -1;
+
+	struct inode *ip = file->ip;
+	ivalid(ip);
+
+	struct Stat stat;
+	// device
+	stat.dev = ip->dev;
+	// inode number
+	stat.ino = ip->inum;
+	// file / dir
+	stat.mode = ip->type == T_FILE ? FILE : DIR;
+	// link count
+	stat.nlink = ip->nlink;
+	if (copyout(p->pagetable, st, (void *) &stat, sizeof(stat)) < 0) {
+		return -1;
+	}
+	return 0;
 }

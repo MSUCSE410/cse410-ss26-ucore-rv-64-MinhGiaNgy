@@ -6,6 +6,7 @@
 #define SYS_setxattr 5
 #define SYS_lsetxattr 6
 #define SYS_fsetxattr 7
+#define SYS_task_info 410
 #define SYS_getxattr 8
 #define SYS_lgetxattr 9
 #define SYS_fgetxattr 10

@@ -7,6 +7,8 @@
 
 #define PIPESIZE (512)
 #define FILEPOOLSIZE (NPROC * FD_BUFFER_SIZE)
+#define DIR 0x040000
+#define FILE 0x100000
 
 // in-memory copy of an inode,it can be used to quickly locate file entities on disk
 struct inode {
@@ -18,6 +20,7 @@ struct inode {
 	uint size;
 	uint addrs[NDIRECT + 1];
 	// LAB4: You may need to add link count here
+	uint nlink;
 };
 
 // Defines a file in memory that provides information about the current use of the file and the corresponding inode location
@@ -28,6 +31,14 @@ struct file {
 	char writable;
 	struct inode *ip; // FD_INODE
 	uint off;
+};
+
+struct Stat {
+	uint64 dev;
+	uint64 ino;
+	uint32 mode;
+	uint32 nlink;
+	uint64 pad[7];
 };
 
 //A few specific fd
@@ -47,4 +58,7 @@ uint64 inoderead(struct file *, uint64, uint64);
 struct file *stdio_init(int);
 int show_all_files();
 
+int linkat(uint64, uint64);
+int unlinkat(uint64);
+int fstat(int, uint64);
 #endif // FILE_H
